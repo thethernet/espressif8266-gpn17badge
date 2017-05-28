@@ -54,16 +54,20 @@ env.Replace(
     AS="xtensa-lx106-elf-as",
     CC="xtensa-lx106-elf-gcc",
     CXX="xtensa-lx106-elf-g++",
-    OBJCOPY="esptool",
+    #OBJCOPY="esptool",
+    ESPTOOL2="esptool2",
+    OBJCOPY="echo OBJCOPY",
+    #ESPTOOL2="echo",
     RANLIB="xtensa-lx106-elf-ranlib",
     SIZETOOL="xtensa-lx106-elf-size",
 
     ARFLAGS=["rcs"],
 
     ASFLAGS=["-x", "assembler-with-cpp"],
-
-    CFLAGS=[
-        "-std=gnu99",
+    
+    
+	CFLAGS=[
+		"-std=gnu99",
         "-Wpointer-arith",
         "-Wno-implicit-function-declaration",
         "-Wl,-EL",
@@ -72,20 +76,37 @@ env.Replace(
     ],
 
     CCFLAGS=[
+		"-c", 	# no linker
+		"-w",	# no warnings
         "-Os",  # optimize for size
+        "-g", 	# debugging
+        "-Wpointer-arith", "-Wno-implicit-function-declaration",
+        "-Wl,-EL",
+        "-fno-inline-functions",
+        "-nostdlib",
         "-mlongcalls",
         "-mtext-section-literals",
         "-falign-functions=4",
-        "-U__STRICT_ANSI__",
+        "-U__STRICT_ANSI__",	# not included in the arduino platform.txt, but pio seems to require it
+        "-MMD",
+        "-std=gnu99",
         "-ffunction-sections",
         "-fdata-sections"
     ],
 
     CXXFLAGS=[
-        "-fno-rtti",
-        "-fno-exceptions",
-        "-std=c++11"
+		"-c", 	# no linker
+		"-w",	# no warnings
+        "-Os",  # optimize for size
+        "-g", 	# debugging
+        "-mlongcalls", "-mtext-section-literals",
+        "-fno-exceptions", "-fno-rtti",
+        "-falign-functions=4",
+        "-std=c++11",
+        "-MMD",
+        "-ffunction-sections", "-fdata-sections"
     ],
+
 
     CPPDEFINES=[
         ("F_CPU", "$BOARD_F_CPU"),
@@ -94,7 +115,7 @@ env.Replace(
     ],
 
     LINKFLAGS=[
-        "-Os",
+        "-Os",	# optimize for size
         "-nostdlib",
         "-Wl,--no-check-sections",
         "-u", "call_user_start",
@@ -119,6 +140,7 @@ env.Replace(
                      "espota.py"),
 
     UPLOADERFLAGS=[
+        "-ca", "$UPLOAD_ADDRESS",
         "-cd", "$UPLOAD_RESETMETHOD",
         "-cb", "$UPLOAD_SPEED",
         "-cp", '"$UPLOAD_PORT"'
@@ -224,25 +246,15 @@ if "PIOFRAMEWORK" in env:
         BUILDERS=dict(
             ElfToBin=Builder(
                 action=env.VerboseAction(" ".join([
-                    '"$OBJCOPY"',
-                    "-eo",
-                    '"%s"' % join("$FRAMEWORK_ARDUINOESP8266_DIR",
-                                  "bootloaders", "eboot", "eboot.elf"),
-                    "-bo", "$TARGET",
-                    "-bm", "$BOARD_FLASH_MODE",
-                    "-bf", "${__get_board_f_flash(__env__)}",
-                    "-bz", "${__get_flash_size(__env__)}",
-                    "-bs", ".text",
-                    "-bp", "4096",
-                    "-ec",
-                    "-eo", "$SOURCES",
-                    "-bs", ".irom0.text",
-                    "-bs", ".text",
-                    "-bs", ".data",
-                    "-bs", ".rodata",
-                    "-bc", "-ec"
+                    '"$ESPTOOL2"',
+                    '-bin',
+                    '-boot2',
+                    '"${TARGET}.elf"',
+                    '"${TARGET}_rboot.bin"',
+                    '.text',
+                    '.data',
+                    '.rodata',
                 ]), "Building $TARGET"),
-                suffix=".bin"
             )
         )
     )
